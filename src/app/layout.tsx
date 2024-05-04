@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { DebtContextProvider } from "@/context/DebtContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +17,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <main className="flex min-h-screen container justify-center px-24 flex-col mx-auto">
+          <div className="mx-auto">
+            <p className="font-semibold text-xl">
+              Debt Consolidation Savings Calculator
+            </p>
+            <p className="font-light text-gray-600">
+              Enter the details of your current unsecured debt and see how much
+              you may be able to save after consolidating the debts into a
+              single loan. Only include credit card debt, medical debt, personal
+              loan debt, and other types of unsecured debt.
+            </p>
+          </div>
+          <DebtContextProvider>{children}</DebtContextProvider>
+        </main>
+      </body>
     </html>
   );
 }

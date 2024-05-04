@@ -1,113 +1,249 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useContext, useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, PlusIcon, XIcon } from "lucide-react";
+import Link from "next/link";
+import DebtContext from "@/context/DebtContext";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const { push } = useRouter();
+  const { debts, setDebts, handleDebtAdd, handleDebtDelete } =
+    useContext(DebtContext);
+
+  const [error, setError] = useState<string | null>(null);
+
+  const getError = (type: string, value: number) => {
+    let isError = false;
+    switch (type) {
+      case "debtAmount":
+        if (value < 1 || value > 999999) {
+          setError("Enter valid debt amount,between 1 to 999999");
+          isError = true;
+        }
+        break;
+      case "debtAPR":
+        if (value < 1 || value > 100) {
+          setError("Enter valid APR,between 1 to 100");
+          isError = true;
+        }
+        break;
+      default:
+        break;
+    }
+
+    return isError;
+  };
+
+  const handleValueChange = (
+    id: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    e.preventDefault();
+
+    setError(null);
+
+    if (e.target.name === "debtAmount" || e.target.name === "debtAPR") {
+      getError(e.target.name, +e.target.value);
+    } else if (e.target.name === "name" && !e.target.value) {
+      setError("Name Required");
+    } else {
+      const [debt] = debts.filter((d) => d.id === id);
+      const interestOnlyPayments = debt.debtAmount * (debt.debtAPR / 1200);
+
+      if (+e.target.value < interestOnlyPayments) {
+        setError(
+          "Monthly Payments can't be less than " +
+            interestOnlyPayments.toFixed(2)
+        );
+      }
+    }
+    setDebts(
+      debts.map((debt) =>
+        debt.id === id ? { ...debt, [e.target.name]: e.target.value } : debt
+      )
+    );
+  };
+
+  const handleCalculate = () => {
+    let isError = false;
+    debts.forEach((debt) => {
+      Object.keys(debt).map((k) => {
+        if (k === "debtAmount" || k === "debtAPR") {
+          isError = getError(k, debt[k]);
+        } else if (k === "name" && !debt[k]) {
+          setError("Name required");
+          isError = true;
+        } else if (k === "monthlyPayment") {
+          const interestOnlyPayments = debt.debtAmount * (debt.debtAPR / 1200);
+
+          if (debt[k] < interestOnlyPayments) {
+            setError(
+              "Monthly Payments can't be less than " +
+                interestOnlyPayments.toFixed(2)
+            );
+            isError = true;
+          }
+        }
+      });
+    });
+    if (error || isError) return;
+    isError = false;
+    push("/result");
+  };
+
+  const getDebtTableContent = useCallback(() => {
+    return (
+      <>
+        {debts
+          .sort((a, b) => a.id - b.id)
+          .map((debt, index) => {
+            const { id, name, debtAmount, debtAPR, monthlyPayment } = debt;
+
+            return (
+              <TableRow key={id}>
+                <TableCell key={`dn-${id}`}>
+                  <div className="mt-1 flex shadow-sm">
+                    <input
+                      type="text"
+                      name="name"
+                      id={`dn-${id}`}
+                      value={name}
+                      onChange={(e) => handleValueChange(id, e)}
+                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none border border-gray-300  focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                      placeholder="e.g. Medical"
+                    />
+                  </div>
+                </TableCell>
+                <TableCell key={`da-${id}`}>
+                  <div className="mt-1 flex shadow-sm">
+                    <span className="inline-flex items-center px-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      max={999999}
+                      min={1}
+                      value={debtAmount}
+                      onChange={(e) => handleValueChange(id, e)}
+                      name="debtAmount"
+                      id={`da-${id}`}
+                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none border border-gray-300  focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                      placeholder="5000"
+                    />
+                  </div>
+                </TableCell>
+                <TableCell key={`apr-${id}`}>
+                  <div className="mt-1 flex shadow-sm">
+                    <input
+                      type="number"
+                      max={100}
+                      min={0}
+                      name="debtAPR"
+                      onChange={(e) => handleValueChange(id, e)}
+                      id={`apr-${id}`}
+                      value={debtAPR}
+                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none border border-gray-300  focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                      placeholder="15.99"
+                    />
+                    <span className="inline-flex items-center px-3 border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      %
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell key={`mp-${id}`}>
+                  <div className="mt-1 flex shadow-sm">
+                    <span className="inline-flex items-center px-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      name="monthlyPayment"
+                      onChange={(e) => handleValueChange(id, e)}
+                      id={`mp-${id}`}
+                      min={1}
+                      value={monthlyPayment}
+                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none border border-gray-300  focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                      placeholder="200"
+                    />
+                  </div>
+                </TableCell>
+                {id !== 1 && (
+                  <TableCell>
+                    <XIcon
+                      className="text-gray-400 hover:cursor-pointer"
+                      onClick={() => {
+                        setError(null);
+                        return handleDebtDelete(id);
+                      }}
+                    />
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+      </>
+    );
+  }, [debts]);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
+    <>
+      <div>
+        <p className="uppercase text-sm font-semibold mt-6 text-gray-700">
+          Enter your current debts
         </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Table>
+          <TableHeader className="uppercase ">
+            <TableRow>
+              <TableHead>Debt name</TableHead>
+              <TableHead>Remaining debt amount</TableHead>
+              <TableHead>Current Apr</TableHead>
+              <TableHead>Current monthly payment</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{getDebtTableContent()}</TableBody>
+        </Table>
+        <div>
+          <Button
+            variant="link"
+            color="cyan"
+            onClick={() => {
+              setError(null);
+              return handleDebtAdd();
+            }}
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            <PlusIcon className="w-5 h-5" />
+            <p className="text-base">Add Another Debt</p>
+          </Button>
+        </div>
+        <div className="w-full">
+          <Button
+            className="w-full disabled:cursor-not-allowed"
+            onClick={handleCalculate}
+            disabled={!!error}
+          >
+            Calculate Savings
+          </Button>
         </div>
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </>
   );
 }
