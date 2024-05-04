@@ -34,10 +34,6 @@ const Result = () => {
     calculateCurrentTotalDebtValues();
   }, [calculateCurrentTotalDebtValues, desiredAPR, desiredMonths]);
 
-  useEffect(() => {
-    if (currentTotal < 1) push("/");
-  }, [currentTotal]);
-
   return (
     <div>
       <Link href="/">
